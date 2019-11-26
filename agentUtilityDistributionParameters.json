@@ -1,0 +1,54 @@
+{
+  "currencyUnit": "USD",
+  "distribution": {
+    "egg": {
+      "type": "unitcost",
+      "unit": "each",
+      "parameters": {
+        "unitcost": [0.25, 0.50]
+      }
+    },
+    "flour": {
+      "type": "unitcost",
+      "unit": "cup",
+      "parameters": {
+        "unitcost": [0.50, 1.00]
+      }
+    },
+    "sugar": {
+      "type": "unitcost",
+      "unit": "cup",
+      "parameters": {
+        "unitcost": [0.50, 1.00]
+      }
+    },
+    "milk": {
+      "type": "unitcost",
+      "unit": "cup",
+      "parameters": {
+        "unitcost": [0.20, 0.40]
+      }
+    },
+    "chocolate": {
+      "type": "unitcost",
+      "unit": "ounce",
+      "parameters": {
+        "unitcost": [0.20, 0.40]
+      }
+    },
+    "blueberry": {
+      "type": "unitcost",
+      "unit": "packet",
+      "parameters": {
+        "unitcost": [0.25, 0.50]
+      }
+    },
+    "vanilla": {
+      "type": "unitcost",
+      "unit": "teaspoon",
+      "parameters": {
+        "unitcost": [0.20, 0.40]
+      }
+    }
+  }
+}

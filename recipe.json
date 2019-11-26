@@ -1,0 +1,13 @@
+{
+  "cake": {
+    "egg": 2,
+    "flour": 2,
+    "milk": 1,
+    "sugar": 1
+  },
+  "pancake": {
+    "egg": 1,
+    "flour": 2,
+    "milk": 2
+  }
+}

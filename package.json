@@ -1,0 +1,41 @@
+{
+  "name": "utility-generator",
+  "version": "0.0.1",
+  "private": true,
+  "main": "utility-generator",
+  "scripts": {
+    "start": "node utility-generator.js",
+    "pretest": "eslint --ignore-path .gitignore ./utility-generator.js"
+  },
+  "author": "Jeff Kephart",
+  "repository": {
+    "type": "git",
+    "url": "http://github.ibm.com/CEL/utility-generator.git"
+  },
+  "dependencies": {
+    "@cel/logger": "^1.0.0",
+    "@cel/discover": "1.1.11",
+    "express": "3.4.8",
+    "prettier": "^1.16.3"
+  },
+  "register": {
+    "instanceName": "utility-generator",
+    "serviceType": "utility-generator",
+    "testRoute": "/test",
+    "testInterval": 30,
+    "launchInvocation": "node utility-generator.js -level 2",
+    "lcManagerDiscover": {
+      "host": "localhost",
+      "port": 1111
+    },
+    "lcManagerRegister": {
+      "host": "localhost",
+      "port": 1111
+    }
+  },
+  "devDependencies": {
+    "eslint": "^5.12.1",
+    "eslint-config-node": "^4.0.0",
+    "eslint-config-strongloop": "^2.1.0"
+  }
+}
