@@ -400,8 +400,9 @@ function instantiateDistribution(field, obj) {
 }
 
 function quantize(quantity, decimals) {
-  let q = parseInt(quantity * Math.pow(10, decimals) + 0.5);
-  return q * Math.pow(10, -1 * decimals);
+  let multiplicator = Math.pow(10, decimals);
+  q = parseFloat((quantity * multiplicator).toFixed(11));
+  return Math.round(q) / multiplicator;
 }
 
 function calculateUtilityAgent(utilityParams, bundle) {
@@ -552,7 +553,7 @@ function optimizeIngredients(ingredients, recipe, utility) { // Generate optimal
       let sufficiency = checkIngredients(ingredients, alloc, recipe);
       logExpression("checkIngredients result: " + sufficiency.sufficient, 2);
       if(sufficiency.sufficient) {
-        let optimalSupplement = optimizeSupplement(ingredients, alloc, recipe, utility);   
+        let optimalSupplement = optimizeSupplement(ingredients, alloc, recipe, utility);
         logExpression("optimalSupplement: ", 2);
         logExpression(optimalSupplement, 2);
       }
@@ -571,7 +572,7 @@ function optimizeSupplement(ingredients, allocation, recipe, utility) {
   Object.keys(allocation.products).forEach(good => {
     logExpression(utility[good].parameters, 2);
     logExpression(allocation.products[good], 2);
-    
+
     util += utility[good].parameters.unitvalue * allocation.products[good].quantity;
     logExpression("Now util is: " + util, 2);
     let extraUtil = 0;
