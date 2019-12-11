@@ -474,7 +474,9 @@ function checkIngredients(ingredients, allocation, recipe) {
       logExpression("good: " + good + ", cgood: " + cgood, 3);
       logExpression(recipe[good][cgood], 3);
       logExpression(products[good].quantity, 3);
-      if(!requiredIngredients[cgood]) requiredIngredients[cgood] = 0;
+      if(!requiredIngredients[cgood]) {
+        requiredIngredients[cgood] = 0;
+      }
       requiredIngredients[cgood] += recipe[good][cgood] * products[good].quantity;
       logExpression("requiredIngredients[" + cgood + "] = ", 3);
       logExpression(requiredIngredients[cgood], 3);
@@ -482,7 +484,9 @@ function checkIngredients(ingredients, allocation, recipe) {
     if(products[good].supplement) {
       products[good].supplement.forEach(sBlock => {
         Object.keys(sBlock).forEach(sgood => {
-          if(requiredIngredients[sgood] == null || requiredIngredients[good] == undefined) requiredIngredients[sgood] = 0;
+          if(requiredIngredients[sgood] == null || requiredIngredients[sgood] == undefined) {
+            requiredIngredients[sgood] = 0;
+          }
           requiredIngredients[sgood] += sBlock[sgood].quantity;
         });
       });
