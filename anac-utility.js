@@ -2,11 +2,12 @@
 
 let myPort = 7021;
 
+const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const express = require('express');
 const logger = require('@cel/logger');
-const dc = require('@cel/discover');
+//const dc = require('@cel/discover');
 const setLogLevel = logger.setLogLevel;
 const logExpression = function(xpr, level) {
   try {
@@ -64,7 +65,7 @@ let agentUtilityDistributionParameters = require('./agentUtilityDistributionPara
 let humanUtilityDistributionParameters = require('./humanUtilityDistributionParameters.json');
 
 let testPostAgent = require('./testUtilityAgent.json');
-let testProductHuman = require('./testProductHuman.json');
+
 
 // Purpose: Generate a utility for an agent or human by drawing from the agent/human utility
 // function distribution.
@@ -327,12 +328,15 @@ app.post('/checkAllocation', (req, res) => {
     "allocation": data.allocation,
     "sufficient": sufficiency.sufficient
   };
-  if(!sufficiency.sufficient) ret.rationale = sufficiency.rationale;
+  //if(!sufficiency.sufficient) ret.rationale = sufficiency.rationale;
+  if (sufficiency.rationale) {
+    ret.rationale = sufficiency.rationale;
+  }
   res.json(ret);
 });
 
 app.get('/checkAllocation', (req, res) => {
-  let data = testProductHuman;
+  let data = JSON.parse(fs.readFileSync('./testProductHuman.json', 'utf8'));
   let sufficiency = checkIngredients(data.ingredients, data.allocation, recipe);
   logExpression(sufficiency, 2);
   let ret = {
@@ -367,10 +371,12 @@ app.get('/setLogLevel/:logLevel', (req, res) => {
 const server = http.createServer(app);
 server.listen(app.get('port'), () => {
   logExpression('Express server listening on port ' + app.get('port'), 1);
+  /*
   dc().init({
     port: app.get('port'),
   });
   dc().installExpressRoutes(app);
+  */
 });
 
 function instantiateDistribution(field, obj) {
@@ -504,8 +510,8 @@ function checkIngredients(ingredients, allocation, recipe) {
     if(!enough) {
       logExpression("Not enough " + good, 3);
       logExpression("Need: " + requiredIngredients[good] + " but only have " + ingredients[good] + ".", 2);
-      rationale[good] = {"need": requiredIngredients[good], "have": ingredients[good]};
     }
+    rationale[good] = {"need": requiredIngredients[good] || 0, "have": ingredients[good] || 0};
     sufficient = sufficient && enough;
   });
   logExpression("returning sufficient value of " + sufficient, 2);
