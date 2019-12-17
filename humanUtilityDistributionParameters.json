@@ -32,9 +32,9 @@
     },
     "pancake": {
       "type": "unitvaluePlusSupplement",
-      "unitvalue": "each",
+      "unit": "each",
       "parameters": {
-        "unitcost": [15,30],
+        "unitvalue": [15,30],
         "supplement": {
           "chocolate": {
             "type": "trapezoid",
