@@ -1,6 +1,6 @@
 {
   "name": "utility-generator",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "private": true,
   "main": "utility-generator",
   "scripts": {
@@ -10,31 +10,16 @@
   "author": "Jeff Kephart",
   "repository": {
     "type": "git",
-    "url": "http://github.ibm.com/CEL/utility-generator.git"
+    "url": "https://us-south.git.cloud.ibm.com/anac-humaine/anac-utility"
   },
   "dependencies": {
-    "@cel/logger": "^1.0.0",
-    "express": "3.4.8",
-    "prettier": "^1.16.3"
-  },
-  "register": {
-    "instanceName": "utility-generator",
-    "serviceType": "utility-generator",
-    "testRoute": "/test",
-    "testInterval": 30,
-    "launchInvocation": "node utility-generator.js -level 2",
-    "lcManagerDiscover": {
-      "host": "localhost",
-      "port": 1111
-    },
-    "lcManagerRegister": {
-      "host": "localhost",
-      "port": 1111
-    }
+    "@cisl/logger": "^1.2.1",
+    "express": "^4.17.1"
   },
   "devDependencies": {
     "eslint": "^5.12.1",
     "eslint-config-node": "^4.0.0",
-    "eslint-config-strongloop": "^2.1.0"
+    "eslint-config-strongloop": "^2.1.0",
+    "prettier": "^1.19.1"
   }
 }

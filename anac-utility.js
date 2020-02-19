@@ -6,16 +6,7 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const express = require('express');
-const logger = require('@cel/logger');
-//const dc = require('@cel/discover');
-const setLogLevel = logger.setLogLevel;
-const logExpression = function(xpr, level) {
-  try {
-    logger.logExpression(xpr, level);
-  } catch (err) {
-    logger.logExpression('ERROR: Failed to log expression: ' + err, 1);
-  }
-};
+const {setLogLevel, logExpression} = require('@cisl/logger');
 
 let logLevel = 1;
 process.argv.forEach((val, index, array) => {
@@ -32,37 +23,25 @@ setLogLevel(logLevel);
 
 const app = express();
 
-app.configure(() => {
-  app.set('port', process.env.PORT || myPort);
-  app.set('views', path.join(__dirname, '/views'));
-  app.use(express.static(path.join(__dirname, '/public')));
-  app.set('view engine', 'jade');
-  app.use(express.favicon());
-  app.use(express.logger('dev'));
-  app.use(
-    express.bodyParser({
-      limit: '50mb',
-    })
-  );
-  app.use(express.methodOverride());
-  app.use(app.router);
-  app.set('json spaces', 2);
-  app.use(
-    express.json({
-      limit: '50mb',
-    })
-  );
-  app.use(
-    express.urlencoded({
-      limit: '50mb',
-    })
-  );
-  app.use(express.static(path.join(__dirname, 'public')));
-});
+app.use(express.json());
 
-let recipe = require('./recipe.json');
-let agentUtilityDistributionParameters = require('./agentUtilityDistributionParameters.json');
-let humanUtilityDistributionParameters = require('./humanUtilityDistributionParameters.json');
+app.set('port', process.env.PORT || myPort);
+app.set('json spaces', 2);
+app.use(
+  express.json({
+    limit: '50mb',
+  })
+);
+app.use(
+  express.urlencoded({
+    extended: true,
+    limit: '50mb',
+  })
+);
+
+const recipe = require('./recipe.json');
+const agentUtilityDistributionParameters = require('./agentUtilityDistributionParameters.json');
+const humanUtilityDistributionParameters = require('./humanUtilityDistributionParameters.json');
 
 let testPostAgent = require('./testUtilityAgent.json');
 
@@ -371,12 +350,6 @@ app.get('/setLogLevel/:logLevel', (req, res) => {
 const server = http.createServer(app);
 server.listen(app.get('port'), () => {
   logExpression('Express server listening on port ' + app.get('port'), 1);
-  /*
-  dc().init({
-    port: app.get('port'),
-  });
-  dc().installExpressRoutes(app);
-  */
 });
 
 function instantiateDistribution(field, obj) {
