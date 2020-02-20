@@ -7,7 +7,7 @@ let methodOverride = require('method-override');
 let bodyParser = require('body-parser');
 
 const appSettings = require('./appSettings.json');
-let loggerModule = appSettings.logger || '@cel/logger';
+let loggerModule = appSettings.logger || '@cisl/logger';
 const { logExpression, setLogLevel } = require(loggerModule);
 
 let logLevel = 1;
@@ -27,14 +27,26 @@ let myPort = appSettings.defaultPort || 7021;
 
 const app = express();
 
+app.use(express.json());
+
 app.set('port', process.env.PORT || myPort);
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(methodOverride());
+app.set('json spaces', 2);
+app.use(
+  express.json({
+    limit: '50mb',
+  })
+);
+app.use(
+  express.urlencoded({
+    extended: true,
+    limit: '50mb',
+  })
+);
 
 let recipe = require('./recipe.json');
 let sellerUtilityDistributionParameters = require('./sellerUtilityDistributionParameters.json');
 let buyerUtilityDistributionParameters = require('./buyerUtilityDistributionParameters.json');
+
 
 let testPostSeller = require('./testUtilitySeller.json');
 
@@ -348,12 +360,6 @@ app.get('/setLogLevel/:logLevel', (req, res) => {
 const server = http.createServer(app);
 server.listen(app.get('port'), () => {
   logExpression('Express server listening on port ' + app.get('port'), 1);
-  /*
-  dc().init({
-    port: app.get('port'),
-  });
-  dc().installExpressRoutes(app);
-  */
 });
 
 function instantiateDistribution(field, obj) {
