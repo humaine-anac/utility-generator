@@ -1,21 +1,14 @@
 // Authors: Jeff Kephart (kephart@us.ibm.com)
 
-let myPort = 7021;
-
 const fs = require('fs');
 const http = require('http');
-const path = require('path');
 const express = require('express');
-const logger = require('@cel/logger');
-//const dc = require('@cel/discover');
-const setLogLevel = logger.setLogLevel;
-const logExpression = function(xpr, level) {
-  try {
-    logger.logExpression(xpr, level);
-  } catch (err) {
-    logger.logExpression('ERROR: Failed to log expression: ' + err, 1);
-  }
-};
+let methodOverride = require('method-override');
+let bodyParser = require('body-parser');
+
+const appSettings = require('./appSettings.json');
+let loggerModule = appSettings.logger || '@cel/logger';
+const { logExpression, setLogLevel } = require(loggerModule);
 
 let logLevel = 1;
 process.argv.forEach((val, index, array) => {
@@ -30,54 +23,36 @@ process.argv.forEach((val, index, array) => {
 
 setLogLevel(logLevel);
 
+let myPort = appSettings.defaultPort || 7021;
+
 const app = express();
 
-app.configure(() => {
-  app.set('port', process.env.PORT || myPort);
-  app.set('views', path.join(__dirname, '/views'));
-  app.use(express.static(path.join(__dirname, '/public')));
-  app.set('view engine', 'jade');
-  app.use(express.favicon());
-  app.use(express.logger('dev'));
-  app.use(
-    express.bodyParser({
-      limit: '50mb',
-    })
-  );
-  app.use(express.methodOverride());
-  app.use(app.router);
-  app.set('json spaces', 2);
-  app.use(
-    express.json({
-      limit: '50mb',
-    })
-  );
-  app.use(
-    express.urlencoded({
-      limit: '50mb',
-    })
-  );
-  app.use(express.static(path.join(__dirname, 'public')));
-});
+app.set('port', process.env.PORT || myPort);
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(methodOverride());
 
 let recipe = require('./recipe.json');
-let agentUtilityDistributionParameters = require('./agentUtilityDistributionParameters.json');
-let humanUtilityDistributionParameters = require('./humanUtilityDistributionParameters.json');
+let sellerUtilityDistributionParameters = require('./sellerUtilityDistributionParameters.json');
+let buyerUtilityDistributionParameters = require('./buyerUtilityDistributionParameters.json');
 
-let testPostAgent = require('./testUtilityAgent.json');
+let testPostSeller = require('./testUtilitySeller.json');
 
 
-// Purpose: Generate a utility for an agent or human by drawing from the agent/human utility
+// Purpose: Generate a utility for a seller or buyer by drawing from the buyer/seller utility
 // function distribution.
-app.get('/generateUtility/:agentType', (req, res) => {
-  let agentType = req.params.agentType;
-  if(agentType.toLowerCase() == "human") {
-    res.json(instantiateDistribution(null, humanUtilityDistributionParameters));
+app.get('/generateUtility/:agentRole', (req, res) => {
+  let agentRole = req.params.agentRole;
+  logExpression("/generateUtility/" + agentRole + " called.", 2);
+  if(agentRole.toLowerCase() == "human") agentRole ="buyer";
+  if(agentRole.toLowerCase() == "agent") agentRole ="seller";
+  if(agentRole.toLowerCase() == "buyer") {
+    res.json(instantiateDistribution(null, buyerUtilityDistributionParameters));
   }
-  else if (agentType.toLowerCase() == "agent") {
-    res.json(instantiateDistribution(null, agentUtilityDistributionParameters));
+  else if (agentRole.toLowerCase() == "seller") {
+    res.json(instantiateDistribution(null, sellerUtilityDistributionParameters));
   }
-  else res.send(500,{"msg": "Invalid agent type: " + agentType});
+  else res.send(500,{"msg": "Invalid agent role: " + agentRole});
 });
 
 // Purpose: Calculate utility for an agent or a human, given their utility function and the set of goods
@@ -199,30 +174,32 @@ app.get('/generateUtility/:agentType', (req, res) => {
 //   }
 //}
 
-app.post('/calculateUtility/:agentType', (req, res) => {
-  let agentType = req.params.agentType;
+app.post('/calculateUtility/:agentRole', (req, res) => {
+  let agentRole = req.params.agentRole;
   let data = req.body;
-  if(agentType.toLowerCase() == "human") {
-    let utilityInfo = calculateUtilityHuman(data.utility, data.bundle);
+  if(agentRole.toLowerCase() == "human") agentRole = "buyer";
+  if(agentRole.toLowerCase() == "agent") agentRole = "seller";
+  if(agentRole.toLowerCase() == "buyer") {
+    let utilityInfo = calculateUtilityBuyer(data.utility, data.bundle);
     res.json({
       "currencyUnit": data.currencyUnit,
       "value": utilityInfo.utility,
       "breakdown": utilityInfo.breakdown
     });
   }
-  else if (agentType.toLowerCase() == "agent") {
-    let util = calculateUtilityAgent(data.utility, data.bundle);
+  else if (agentRole.toLowerCase() == "seller") {
+    let util = calculateUtilitySeller(data.utility, data.bundle);
     res.json({
       "currencyUnit": data.currencyUnit,
       "value": util
     });
   }
   else {
-    res.send(500,{"msg": "Invalid agent type: " + agentType});
+    res.send(500,{"msg": "Invalid role: " + agentRole});
   }
 });
 
-//// Purpose: Calculate utility for an agent or a human, given their utility function and the set of goods
+//// Purpose: Calculate utility for a buyer or seller, given their utility function and the set of goods
 //// that they sold or acquired. This can be used by an agent during a round to determine how profitable a
 //// given bid would be. However, it can only be used by a human after the round is complete and they have
 //// determined this allocation from the set of ingredients, as the human allocation is in terms of baked
@@ -336,7 +313,7 @@ app.post('/checkAllocation', (req, res) => {
 });
 
 app.get('/checkAllocation', (req, res) => {
-  let data = JSON.parse(fs.readFileSync('./testProductHuman.json', 'utf8'));
+  let data = JSON.parse(fs.readFileSync('./testProductBuyer.json', 'utf8'));
   let sufficiency = checkIngredients(data.ingredients, data.allocation, recipe);
   logExpression(sufficiency, 2);
   let ret = {
@@ -411,7 +388,7 @@ function quantize(quantity, decimals) {
   return Math.round(q) / multiplicator;
 }
 
-function calculateUtilityAgent(utilityParams, bundle) {
+function calculateUtilitySeller(utilityParams, bundle) {
   let util = bundle.price;
   Object.keys(bundle.quantity).forEach(good => {
     util -= utilityParams[good].parameters.unitcost * bundle.quantity[good];
@@ -419,7 +396,7 @@ function calculateUtilityAgent(utilityParams, bundle) {
   return util;
 }
 
-function calculateUtilityHuman(utility, allocation) {
+function calculateUtilityBuyer(utility, allocation) {
   logExpression("In calculateUH with utility and allocation = ", 2);
   logExpression(utility, 2);
   logExpression(allocation, 2);

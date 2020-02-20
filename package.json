@@ -14,23 +14,10 @@
   },
   "dependencies": {
     "@cel/logger": "^1.0.0",
-    "express": "3.4.8",
-    "prettier": "^1.16.3"
-  },
-  "register": {
-    "instanceName": "utility-generator",
-    "serviceType": "utility-generator",
-    "testRoute": "/test",
-    "testInterval": 30,
-    "launchInvocation": "node utility-generator.js -level 2",
-    "lcManagerDiscover": {
-      "host": "localhost",
-      "port": 1111
-    },
-    "lcManagerRegister": {
-      "host": "localhost",
-      "port": 1111
-    }
+    "prettier": "^1.16.3",
+    "express": "^4.17.1",
+    "body-parser": "^1.19.0",
+    "method-override": "^3.0.0"
   },
   "devDependencies": {
     "eslint": "^5.12.1",

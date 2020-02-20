@@ -1,0 +1,63 @@
+{
+  "currencyUnit": "USD",
+  "distribution": {
+    "cake": {
+      "type": "unitvaluePlusSupplement",
+      "unit": "each",
+      "parameters": {
+        "unitvalue": [15,30],
+        "supplement": {
+          "chocolate": {
+            "type": "trapezoid",
+            "unit": "ounce",
+            "parameters": {
+              "minQuantity": [3,3],
+              "maxQuantity": [6,6],
+              "minValue": [2, 4],
+              "maxValue": [4, 8]
+            }
+          },
+          "vanilla": {
+            "type": "trapezoid",
+            "unit": "teaspoon",
+            "parameters": {
+              "minQuantity": [2,2],
+              "maxQuantity": [4,4],
+              "minValue": [2, 4],
+              "maxValue": [4, 8]
+            }
+          }
+        }
+      }
+    },
+    "pancake": {
+      "type": "unitvaluePlusSupplement",
+      "unit": "each",
+      "parameters": {
+        "unitvalue": [15,30],
+        "supplement": {
+          "chocolate": {
+            "type": "trapezoid",
+            "unit": "ounce",
+            "parameters": {
+              "minQuantity": [3,3],
+              "maxQuantity": [6,6],
+              "minValue": [2, 4],
+              "maxValue": [4, 8]
+            }
+          },
+          "blueberry": {
+            "type": "trapezoid",
+            "unit": "packet",
+            "parameters": {
+              "minQuantity": [1,1],
+              "maxQuantity": [3,3],
+              "minValue": [2, 4],
+              "maxValue": [4, 8]
+            }
+          }
+        }
+      }
+    }
+  }
+}
