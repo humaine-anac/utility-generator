@@ -1,11 +1,11 @@
 {
-  "name": "utility-generator",
+  "name": "anac-utility",
   "version": "1.0.0",
   "private": true,
-  "main": "utility-generator",
+  "main": "anac-utility",
   "scripts": {
     "start": "node utility-generator.js",
-    "pretest": "eslint --ignore-path .gitignore ./utility-generator.js"
+    "pretest": "eslint --ignore-path .gitignore ./anac-utility.js"
   },
   "author": "Jeff Kephart",
   "repository": {
@@ -14,10 +14,8 @@
   },
   "dependencies": {
     "@cisl/logger": "^1.2.1",
-    "prettier": "^1.16.3",
-    "express": "^4.17.1",
-    "body-parser": "^1.19.0",
-    "method-override": "^3.0.0"
+    "prettier": "^1.19.1",
+    "express": "^4.17.1"
   },
   "devDependencies": {
     "eslint": "^5.12.1",

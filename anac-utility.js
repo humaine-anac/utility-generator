@@ -3,8 +3,6 @@
 const fs = require('fs');
 const http = require('http');
 const express = require('express');
-let methodOverride = require('method-override');
-let bodyParser = require('body-parser');
 
 const appSettings = require('./appSettings.json');
 let loggerModule = appSettings.logger || '@cisl/logger';
@@ -43,13 +41,14 @@ app.use(
   })
 );
 
-let recipe = require('./recipe.json');
+const getSafe = (p, o, d) =>
+  p.reduce((xs, x) => (xs && xs[x] != null && xs[x] != undefined) ? xs[x] : d, o);
+
+let GLOB = {};
+GLOB.recipe = require('./recipe.json') || null;
+
 let sellerUtilityDistributionParameters = require('./sellerUtilityDistributionParameters.json');
 let buyerUtilityDistributionParameters = require('./buyerUtilityDistributionParameters.json');
-
-
-let testPostSeller = require('./testUtilitySeller.json');
-
 
 // Purpose: Generate a utility for a seller or buyer by drawing from the buyer/seller utility
 // function distribution.
@@ -310,21 +309,33 @@ app.post('/calculateUtility/:agentRole', (req, res) => {
 // ingredients are insufficient, and the amount of the shortfall.
 app.post('/checkAllocation', (req, res) => {
   let data = req.body;
-  let sufficiency = checkIngredients(data.ingredients, data.allocation, recipe);
-  logExpression(sufficiency, 2);
-  let ret = {
-    "ingredients": data.ingredients,
-    "allocation": data.allocation,
-    "sufficient": sufficiency.sufficient
-  };
-  //if(!sufficiency.sufficient) ret.rationale = sufficiency.rationale;
-  if (sufficiency.rationale) {
-    ret.rationale = sufficiency.rationale;
-  }
-  res.json(ret);
+	let recipe = GLOB.recipe;
+	logExpression("Call to /checkAllocation with POST body: ", 2);
+	logExpression(data, 2);
+	if(data) {
+		let sufficiency = checkIngredients(data.ingredients, data.allocation, recipe);
+		logExpression(sufficiency, 2);
+		let ret = {
+			"ingredients": data.ingredients,
+			"allocation": data.allocation,
+			"sufficient": sufficiency.sufficient
+		};
+		//if(!sufficiency.sufficient) ret.rationale = sufficiency.rationale;
+		if (sufficiency.rationale) {
+			ret.rationale = sufficiency.rationale;
+		}
+		res.json(ret);
+	}
+	else {
+		let msg = {"msg": "Empty body; needed to supply ingredients, allocation and recipe."};
+		logExpression(msg, 2);
+		res.status(500).send(msg);
+	}
 });
 
+// This is just for testing purposes; probably not needed any more
 app.get('/checkAllocation', (req, res) => {
+	let recipe = GLOB.recipe;
   let data = JSON.parse(fs.readFileSync('./testProductBuyer.json', 'utf8'));
   let sufficiency = checkIngredients(data.ingredients, data.allocation, recipe);
   logExpression(sufficiency, 2);
@@ -456,47 +467,60 @@ function calculateUtilityBuyer(utility, allocation) {
 function checkIngredients(ingredients, allocation, recipe) {
   let sufficient = true;
   let requiredIngredients = {};
-  let products = allocation.products;
+	logExpression("In checkIngredients, allocation is: ", 2);
+	logExpression(allocation, 2);
+  let products = getSafe(['product'], allocation, null);
   let rationale = {};
-  Object.keys(products).forEach(good => {
-    Object.keys(recipe[good]).forEach(cgood => {
-      logExpression("good: " + good + ", cgood: " + cgood, 3);
-      logExpression(recipe[good][cgood], 3);
-      logExpression(products[good].quantity, 3);
-      if(!requiredIngredients[cgood]) {
-        requiredIngredients[cgood] = 0;
-      }
-      requiredIngredients[cgood] += recipe[good][cgood] * products[good].quantity;
-      logExpression("requiredIngredients[" + cgood + "] = ", 3);
-      logExpression(requiredIngredients[cgood], 3);
-    });
-    if(products[good].supplement) {
-      products[good].supplement.forEach(sBlock => {
-        Object.keys(sBlock).forEach(sgood => {
-          if(requiredIngredients[sgood] == null || requiredIngredients[sgood] == undefined) {
-            requiredIngredients[sgood] = 0;
-          }
-          requiredIngredients[sgood] += sBlock[sgood].quantity;
-        });
-      });
-    }
-  });
-  logExpression("requiredIngredients: ", 3);
-  logExpression(requiredIngredients, 3);
-  Object.keys(ingredients).forEach(good => {
-    logExpression("requiredIngredients[" +  good + "]: ", 2);
-    logExpression(requiredIngredients[good], 3);
-    let enough = requiredIngredients[good] == null || requiredIngredients[good] == undefined;
-    logExpression("Enough is: " + enough, 3);
-    enough = enough || (requiredIngredients[good] <= ingredients[good]);
-    logExpression("Now enough is: " + enough, 3);
-    if(!enough) {
-      logExpression("Not enough " + good, 3);
-      logExpression("Need: " + requiredIngredients[good] + " but only have " + ingredients[good] + ".", 2);
-    }
-    rationale[good] = {"need": requiredIngredients[good] || 0, "have": ingredients[good] || 0};
-    sufficient = sufficient && enough;
-  });
+	if(products && recipe) {
+		Object.keys(products).forEach(good => {
+			Object.keys(recipe[good]).forEach(cgood => {
+				logExpression("good: " + good + ", cgood: " + cgood, 3);
+				logExpression(recipe[good][cgood], 3);
+				logExpression(products[good].quantity, 3);
+				if(!requiredIngredients[cgood]) {
+					requiredIngredients[cgood] = 0;
+				}
+				requiredIngredients[cgood] += recipe[good][cgood] * products[good].quantity;
+				logExpression("requiredIngredients[" + cgood + "] = ", 3);
+				logExpression(requiredIngredients[cgood], 3);
+			});
+			if(products[good].supplement) {
+				products[good].supplement.forEach(sBlock => {
+					Object.keys(sBlock).forEach(sgood => {
+						if(requiredIngredients[sgood] == null || requiredIngredients[sgood] == undefined) {
+							requiredIngredients[sgood] = 0;
+						}
+						requiredIngredients[sgood] += sBlock[sgood].quantity;
+					});
+				});
+			}
+		});
+	}
+  logExpression("requiredIngredients: ", 2);
+  logExpression(requiredIngredients, 2);
+	if(!ingredients) {
+		ingredients = {};
+	}
+	Object.keys(requiredIngredients).forEach(good => {
+		if(!ingredients[good]) {
+			logExpression("Was lacking the good " + good, 2);
+			ingredients[good] = 0;
+		}
+	});
+	Object.keys(ingredients).forEach(good => {
+		logExpression("requiredIngredients[" +  good + "]: ", 2);
+		logExpression(requiredIngredients[good], 3);
+		let enough = requiredIngredients[good] == null || requiredIngredients[good] == undefined;
+		logExpression("Enough is: " + enough, 3);
+		enough = enough || (requiredIngredients[good] <= ingredients[good]);
+		logExpression("Now enough is: " + enough, 3);
+		if(!enough) {
+			logExpression("Not enough " + good, 3);
+			logExpression("Need: " + requiredIngredients[good] + " but only have " + ingredients[good] + ".", 2);
+		}
+		rationale[good] = {"need": requiredIngredients[good] || 0, "have": ingredients[good] || 0};
+		sufficient = sufficient && enough;
+	});
   logExpression("returning sufficient value of " + sufficient, 2);
   return {
     sufficient,
