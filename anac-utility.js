@@ -3,20 +3,19 @@
 const fs = require('fs');
 const http = require('http');
 const express = require('express');
+const {setLogLevel, logExpression} = require('@cisl/zepto-logger');
 
 const appSettings = require('./appSettings.json');
-let loggerModule = appSettings.logger || '@cisl/logger';
-const { logExpression, setLogLevel } = require(loggerModule);
 
 let logLevel = 1;
 process.argv.forEach((val, index, array) => {
-	if (val === '-port') {
-		myPort = array[index + 1];
-	}
-	if (val === '-level') {
-		logLevel = array[index + 1];
-		logExpression('Setting log level to ' + logLevel, 1);
-	}
+  if (val === '-port') {
+    myPort = array[index + 1];
+  }
+  if (val === '-level') {
+    logLevel = parseInt(array[index + 1]);
+    logExpression('Setting log level to ' + logLevel, 1);
+  }
 });
 
 setLogLevel(logLevel);
