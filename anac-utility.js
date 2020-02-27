@@ -3,19 +3,19 @@
 const fs = require('fs');
 const http = require('http');
 const express = require('express');
-const {setLogLevel, logExpression} = require('@cisl/zepto-logger');
 
 const appSettings = require('./appSettings.json');
+const { logExpression, setLogLevel } = require('@cisl/zepto-logger');
 
 let logLevel = 1;
 process.argv.forEach((val, index, array) => {
-  if (val === '-port') {
-    myPort = array[index + 1];
-  }
-  if (val === '-level') {
-    logLevel = parseInt(array[index + 1]);
-    logExpression('Setting log level to ' + logLevel, 1);
-  }
+	if (val === '-port') {
+		myPort = array[index + 1];
+	}
+	if (val === '-level') {
+		logLevel = array[index + 1];
+		logExpression('Setting log level to ' + logLevel, 1);
+	}
 });
 
 setLogLevel(logLevel);
@@ -186,7 +186,9 @@ app.get('/generateUtility/:agentRole', (req, res) => {
 
 app.post('/calculateUtility/:agentRole', (req, res) => {
   let agentRole = req.params.agentRole;
+	logExpression("Called /calculateUtility/" + agentRole + " with body: ", 2);
   let data = req.body;
+	logExpression(data, 2);
   if(agentRole.toLowerCase() == "human") agentRole = "buyer";
   if(agentRole.toLowerCase() == "agent") agentRole = "seller";
   if(agentRole.toLowerCase() == "buyer") {
@@ -199,6 +201,7 @@ app.post('/calculateUtility/:agentRole', (req, res) => {
   }
   else if (agentRole.toLowerCase() == "seller") {
     let util = calculateUtilitySeller(data.utility, data.bundle);
+		logExpression("Utility: " + util, 2);
     res.json({
       "currencyUnit": data.currencyUnit,
       "value": util
@@ -311,24 +314,31 @@ app.post('/checkAllocation', (req, res) => {
 	let recipe = GLOB.recipe;
 	logExpression("Call to /checkAllocation with POST body: ", 2);
 	logExpression(data, 2);
-	if(data) {
-		let sufficiency = checkIngredients(data.ingredients, data.allocation, recipe);
-		logExpression(sufficiency, 2);
-		let ret = {
-			"ingredients": data.ingredients,
-			"allocation": data.allocation,
-			"sufficient": sufficiency.sufficient
-		};
-		//if(!sufficiency.sufficient) ret.rationale = sufficiency.rationale;
-		if (sufficiency.rationale) {
-			ret.rationale = sufficiency.rationale;
+	try {
+		if(data) {
+			let sufficiency = checkIngredients(data.ingredients, data.allocation, recipe);
+			logExpression(sufficiency, 2);
+			let ret = {
+				"ingredients": data.ingredients,
+				"allocation": data.allocation,
+				"sufficient": sufficiency.sufficient
+			};
+			//if(!sufficiency.sufficient) ret.rationale = sufficiency.rationale;
+			if (sufficiency.rationale) {
+				ret.rationale = sufficiency.rationale;
+			}
+			res.json(ret);
 		}
-		res.json(ret);
+		else {
+			let msg = {"msg": "Empty body; needed to supply ingredients, allocation and recipe."};
+			logExpression(msg, 2);
+			res.status(500).send(msg);
+		}
 	}
-	else {
-		let msg = {"msg": "Empty body; needed to supply ingredients, allocation and recipe."};
-		logExpression(msg, 2);
-		res.status(500).send(msg);
+	catch(e) {
+		logExpression("In catch of /checkAllocation POST, error was: ", 1);
+		logExpression(e);
+		res.status(500).send(e);
 	}
 });
 
@@ -436,22 +446,33 @@ function calculateUtilityBuyer(utility, allocation) {
       logExpression("supplementList: ", 2);
       logExpression(supplementList, 2);
       supplementList.forEach(sBlock => {
+				logExpression("sBlock: ", 2);
+				logExpression(sBlock, 2);
         let maxExtras = 1;
         let extras = 0;
         Object.keys(sBlock).forEach(sgood => {
+					logExpression("sgood: ", 2);
+					logExpression(sgood, 2);
           let sQuantity = Math.min(sBlock[sgood].quantity, uParams[sgood].parameters.maxQuantity);
-          if(sQuantity < sBlock[sgood].quantity) sQuantity = 0;
-          let eUtil = uParams[sgood].parameters.minValue + (sQuantity - uParams[sgood].parameters.minQuantity) * (uParams[sgood].parameters.maxValue - uParams[sgood].parameters.minValue) / (uParams[sgood].parameters.maxQuantity - uParams[sgood].parameters.minQuantity);
-          if(extras < maxExtras) {
-            util += eUtil;
-            logExpression("Added extra utility " + eUtil + " for " + sQuantity + " " + sgood + ".", 2);
-            logExpression("Now util is:  " + util, 2);
-            extras++;
-            breakdown[good].supplement.push({good: sgood, quantity: sQuantity, utility: eUtil});
-          }
-          else {
-            logExpression("Attempted to add another extra (" + sgood + "), but maximum extras is " + maxExtras, 2);
-          }
+					
+					let eUtil = 0.0;
+          if(sQuantity >= uParams[sgood].parameters.minQuantity) {
+						eUtil = uParams[sgood].parameters.minValue +
+												(sQuantity - uParams[sgood].parameters.minQuantity) *
+												(uParams[sgood].parameters.maxValue - uParams[sgood].parameters.minValue) / (uParams[sgood].parameters.maxQuantity - uParams[sgood].parameters.minQuantity);
+					}
+          if(eUtil > 0.0) {
+						if(extras < maxExtras && eUtil > 0.0) {
+							util += eUtil;
+							logExpression("Added extra utility " + eUtil + " for " + sQuantity + " " + sgood + ".", 2);
+							logExpression("Now util is:  " + util, 2);
+							extras++;
+							breakdown[good].supplement.push({good: sgood, quantity: sQuantity, utility: eUtil});
+						}
+						else {
+							logExpression("Attempted to add another extra (" + sgood + "), but maximum extras is " + maxExtras, 2);
+						}
+					}
         });
       });
     }
@@ -468,7 +489,7 @@ function checkIngredients(ingredients, allocation, recipe) {
   let requiredIngredients = {};
 	logExpression("In checkIngredients, allocation is: ", 2);
 	logExpression(allocation, 2);
-  let products = getSafe(['product'], allocation, null);
+  let products = getSafe(['products'], allocation, null);
   let rationale = {};
 	if(products && recipe) {
 		Object.keys(products).forEach(good => {
