@@ -419,6 +419,7 @@ function calculateUtilitySeller(utilityParams, bundle) {
   Object.keys(bundle.quantity).forEach(good => {
     util -= utilityParams[good].parameters.unitcost * bundle.quantity[good];
   });
+	util = quantize(util, 2);
   return util;
 }
 
@@ -477,6 +478,7 @@ function calculateUtilityBuyer(utility, allocation) {
       });
     }
   });
+	util = quantize(util, 2);
   logExpression("Finally, util is: " + util, 2);
   return {
     utility: util,
