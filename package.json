@@ -1,16 +1,16 @@
 {
-  "name": "anac-utility",
+  "name": "utility-generator",
   "version": "1.0.0",
   "private": true,
-  "main": "anac-utility",
+  "main": "utility-generator",
   "scripts": {
     "start": "node utility-generator.js",
-    "pretest": "eslint --ignore-path .gitignore ./anac-utility.js"
+    "pretest": "eslint --ignore-path .gitignore ./utility-generator.js"
   },
   "author": "Jeff Kephart",
   "repository": {
     "type": "git",
-    "url": "https://us-south.git.cloud.ibm.com/anac-humaine/anac-utility"
+    "url": "https://github.com/humaine-anac/utility-generator"
   },
   "dependencies": {
     "@cisl/zepto-logger": "^1.0.0",
