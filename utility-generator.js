@@ -6,21 +6,16 @@ const express = require('express');
 
 const appSettings = require('./appSettings.json');
 const { logExpression, setLogLevel } = require('@cisl/zepto-logger');
+const argv = require('minimist')(process.argv.slice(2));
 
 let logLevel = 1;
-process.argv.forEach((val, index, array) => {
-	if (val === '-port') {
-		myPort = array[index + 1];
-	}
-	if (val === '-level') {
-		logLevel = array[index + 1];
-		logExpression('Setting log level to ' + logLevel, 1);
-	}
-});
-
+if (argv.level) {
+  logLevel = argv.level;
+  logExpression(`Setting log level to ${logLevel}`);
+}
 setLogLevel(logLevel);
 
-let myPort = appSettings.defaultPort || 7021;
+const myPort = parseInt(argv.port || appSettings.defaultPort || 7021);
 
 const app = express();
 
@@ -455,7 +450,7 @@ function calculateUtilityBuyer(utility, allocation) {
 					logExpression("sgood: ", 2);
 					logExpression(sgood, 2);
           let sQuantity = Math.min(sBlock[sgood].quantity, uParams[sgood].parameters.maxQuantity);
-					
+
 					let eUtil = 0.0;
           if(sQuantity >= uParams[sgood].parameters.minQuantity) {
 						eUtil = uParams[sgood].parameters.minValue +
