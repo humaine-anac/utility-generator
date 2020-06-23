@@ -1,12 +1,13 @@
-// Authors: Jeff Kephart (kephart@us.ibm.com)
+const fs = require("fs");
+const http = require("http");
+const express = require("express");
+const get = require("lodash.get");
 
-const fs = require('fs');
-const http = require('http');
-const express = require('express');
+const appSettings = require("./appSettings.json");
+const { logExpression, setLogLevel } = require("@cisl/zepto-logger");
+const { quantize } = require("@humaine/utils/math");
 
-const appSettings = require('./appSettings.json');
-const { logExpression, setLogLevel } = require('@cisl/zepto-logger');
-const argv = require('minimist')(process.argv.slice(2));
+const argv = require("minimist")(process.argv.slice(2));
 
 let logLevel = 1;
 if (argv.level) {
@@ -21,43 +22,38 @@ const app = express();
 
 app.use(express.json());
 
-app.set('port', process.env.PORT || myPort);
-app.set('json spaces', 2);
+app.set("port", process.env.PORT || myPort);
+app.set("json spaces", 2);
 app.use(
   express.json({
-    limit: '50mb',
+    limit: "50mb",
   })
 );
 app.use(
   express.urlencoded({
     extended: true,
-    limit: '50mb',
+    limit: "50mb",
   })
 );
 
-const getSafe = (p, o, d) =>
-  p.reduce((xs, x) => (xs && xs[x] != null && xs[x] != undefined) ? xs[x] : d, o);
-
 let GLOB = {};
-GLOB.recipe = require('./recipe.json') || null;
+GLOB.recipe = require("./recipe.json") || null;
 
-let sellerUtilityDistributionParameters = require('./sellerUtilityDistributionParameters.json');
-let buyerUtilityDistributionParameters = require('./buyerUtilityDistributionParameters.json');
+let sellerUtilityDistributionParameters = require("./distribution_parameters/seller.json");
+let buyerUtilityDistributionParameters = require("./distribution_parameters/buyer.json");
 
 // Purpose: Generate a utility for a seller or buyer by drawing from the buyer/seller utility
 // function distribution.
-app.get('/generateUtility/:agentRole', (req, res) => {
+app.get("/generateUtility/:agentRole", (req, res) => {
   let agentRole = req.params.agentRole;
   logExpression("/generateUtility/" + agentRole + " called.", 2);
-  if(agentRole.toLowerCase() == "human") agentRole ="buyer";
-  if(agentRole.toLowerCase() == "agent") agentRole ="seller";
-  if(agentRole.toLowerCase() == "buyer") {
+  if (agentRole.toLowerCase() == "human") agentRole = "buyer";
+  if (agentRole.toLowerCase() == "agent") agentRole = "seller";
+  if (agentRole.toLowerCase() == "buyer") {
     res.json(instantiateDistribution(null, buyerUtilityDistributionParameters));
-  }
-  else if (agentRole.toLowerCase() == "seller") {
+  } else if (agentRole.toLowerCase() == "seller") {
     res.json(instantiateDistribution(null, sellerUtilityDistributionParameters));
-  }
-  else res.send(500,{"msg": "Invalid agent role: " + agentRole});
+  } else res.send(500, { msg: "Invalid agent role: " + agentRole });
 });
 
 // Purpose: Calculate utility for an agent or a human, given their utility function and the set of goods
@@ -179,31 +175,29 @@ app.get('/generateUtility/:agentRole', (req, res) => {
 //   }
 //}
 
-app.post('/calculateUtility/:agentRole', (req, res) => {
+app.post("/calculateUtility/:agentRole", (req, res) => {
   let agentRole = req.params.agentRole;
-	logExpression("Called /calculateUtility/" + agentRole + " with body: ", 2);
+  logExpression("Called /calculateUtility/" + agentRole + " with body: ", 2);
   let data = req.body;
-	logExpression(data, 2);
-  if(agentRole.toLowerCase() == "human") agentRole = "buyer";
-  if(agentRole.toLowerCase() == "agent") agentRole = "seller";
-  if(agentRole.toLowerCase() == "buyer") {
+  logExpression(data, 2);
+  if (agentRole.toLowerCase() == "human") agentRole = "buyer";
+  if (agentRole.toLowerCase() == "agent") agentRole = "seller";
+  if (agentRole.toLowerCase() == "buyer") {
     let utilityInfo = calculateUtilityBuyer(data.utility, data.bundle);
     res.json({
-      "currencyUnit": data.currencyUnit,
-      "value": utilityInfo.utility,
-      "breakdown": utilityInfo.breakdown
+      currencyUnit: data.currencyUnit,
+      value: utilityInfo.utility,
+      breakdown: utilityInfo.breakdown,
     });
-  }
-  else if (agentRole.toLowerCase() == "seller") {
+  } else if (agentRole.toLowerCase() == "seller") {
     let util = calculateUtilitySeller(data.utility, data.bundle);
-		logExpression("Utility: " + util, 2);
+    logExpression("Utility: " + util, 2);
     res.json({
-      "currencyUnit": data.currencyUnit,
-      "value": util
+      currencyUnit: data.currencyUnit,
+      value: util,
     });
-  }
-  else {
-    res.send(500,{"msg": "Invalid role: " + agentRole});
+  } else {
+    res.send(500, { msg: "Invalid role: " + agentRole });
   }
 });
 
@@ -235,7 +229,6 @@ app.post('/calculateUtility/:agentRole', (req, res) => {
 //    res.send(500,{"msg": "Invalid agent type: " + agentType});
 //  }
 //});
-
 
 // Purpose: Check whether a given set of ingredients is sufficient to create a given allocation of ingredients
 // into products, given the recipe. If it is not sufficient, a rationale is provided, which explains which
@@ -304,51 +297,49 @@ app.post('/calculateUtility/:agentRole', (req, res) => {
 // Purpose: Check whether a given set of ingredients is sufficient to create a given allocation of ingredients
 // into products, given the recipe. If it is not sufficient, a rationale is provided, which explains which
 // ingredients are insufficient, and the amount of the shortfall.
-app.post('/checkAllocation', (req, res) => {
+app.post("/checkAllocation", (req, res) => {
   let data = req.body;
-	let recipe = GLOB.recipe;
-	logExpression("Call to /checkAllocation with POST body: ", 2);
-	logExpression(data, 2);
-	try {
-		if(data) {
-			let sufficiency = checkIngredients(data.ingredients, data.allocation, recipe);
-			logExpression(sufficiency, 2);
-			let ret = {
-				"ingredients": data.ingredients,
-				"allocation": data.allocation,
-				"sufficient": sufficiency.sufficient
-			};
-			//if(!sufficiency.sufficient) ret.rationale = sufficiency.rationale;
-			if (sufficiency.rationale) {
-				ret.rationale = sufficiency.rationale;
-			}
-			res.json(ret);
-		}
-		else {
-			let msg = {"msg": "Empty body; needed to supply ingredients, allocation and recipe."};
-			logExpression(msg, 2);
-			res.status(500).send(msg);
-		}
-	}
-	catch(e) {
-		logExpression("In catch of /checkAllocation POST, error was: ", 1);
-		logExpression(e);
-		res.status(500).send(e);
-	}
+  let recipe = GLOB.recipe;
+  logExpression("Call to /checkAllocation with POST body: ", 2);
+  logExpression(data, 2);
+  try {
+    if (data) {
+      let sufficiency = checkIngredients(data.ingredients, data.allocation, recipe);
+      logExpression(sufficiency, 2);
+      let ret = {
+        ingredients: data.ingredients,
+        allocation: data.allocation,
+        sufficient: sufficiency.sufficient,
+      };
+      //if(!sufficiency.sufficient) ret.rationale = sufficiency.rationale;
+      if (sufficiency.rationale) {
+        ret.rationale = sufficiency.rationale;
+      }
+      res.json(ret);
+    } else {
+      let msg = { msg: "Empty body; needed to supply ingredients, allocation and recipe." };
+      logExpression(msg, 2);
+      res.status(500).send(msg);
+    }
+  } catch (e) {
+    logExpression("In catch of /checkAllocation POST, error was: ", 1);
+    logExpression(e);
+    res.status(500).send(e);
+  }
 });
 
 // This is just for testing purposes; probably not needed any more
-app.get('/checkAllocation', (req, res) => {
-	let recipe = GLOB.recipe;
-  let data = JSON.parse(fs.readFileSync('./testProductBuyer.json', 'utf8'));
+app.get("/checkAllocation", (req, res) => {
+  let recipe = GLOB.recipe;
+  let data = JSON.parse(fs.readFileSync("./test_data/productBuyer.json", "utf8"));
   let sufficiency = checkIngredients(data.ingredients, data.allocation, recipe);
   logExpression(sufficiency, 2);
   let ret = {
-    "ingredients": data.ingredients,
-    "allocation": data.allocation,
-    "sufficient": sufficiency.sufficient
+    ingredients: data.ingredients,
+    allocation: data.allocation,
+    sufficient: sufficiency.sufficient,
   };
-  if(!sufficiency.sufficient) ret.rationale = sufficiency.rationale;
+  if (!sufficiency.sufficient) ret.rationale = sufficiency.rationale;
   res.json(ret);
 });
 
@@ -363,38 +354,26 @@ app.get('/checkAllocation', (req, res) => {
 //  });
 //});
 
-app.get('/setLogLevel/:logLevel', (req, res) => {
-	const newLogLevel = req.params.logLevel;
-	setLogLevel(newLogLevel);
-	logExpression('Setting log level to ' + newLogLevel, 2);
-	res.json({
-		msg: 'Set log level to ' + newLogLevel,
-	});
-});
-
 const server = http.createServer(app);
-server.listen(app.get('port'), () => {
-  logExpression('Express server listening on port ' + app.get('port'), 1);
+server.listen(app.get("port"), () => {
+  logExpression(`Express server listening on port ${app.get("port")}`, 1);
 });
 
 function instantiateDistribution(field, obj) {
-  if(Array.isArray(obj) && obj.length == 2) {
+  if (Array.isArray(obj) && obj.length == 2) {
     let range = obj;
-    let draw = range[0] + Math.random() *  (range[1] - range[0]);
-    let ndecimals = (field && field.includes('Quantity')) ? 0 : 2;
+    let draw = range[0] + Math.random() * (range[1] - range[0]);
+    let ndecimals = field && field.includes("Quantity") ? 0 : 2;
     return quantize(draw, ndecimals);
-  }
-  else if (Object.keys(obj).length) {
+  } else if (Object.keys(obj).length) {
     let newobj = {};
-    Object.keys(obj).forEach(field => {
-      if(typeof obj[field] == 'string') {
+    Object.keys(obj).forEach((field) => {
+      if (typeof obj[field] == "string") {
         newobj[field] = obj[field];
-      }
-      else {
-        if(field == "distribution") {
+      } else {
+        if (field == "distribution") {
           newobj.utility = instantiateDistribution(field, obj[field]);
-        }
-        else {
+        } else {
           newobj[field] = instantiateDistribution(field, obj[field]);
         }
       }
@@ -403,18 +382,12 @@ function instantiateDistribution(field, obj) {
   }
 }
 
-function quantize(quantity, decimals) {
-  let multiplicator = Math.pow(10, decimals);
-  q = parseFloat((quantity * multiplicator).toFixed(11));
-  return Math.round(q) / multiplicator;
-}
-
 function calculateUtilitySeller(utilityParams, bundle) {
   let util = bundle.price;
-  Object.keys(bundle.quantity).forEach(good => {
+  Object.keys(bundle.quantity).forEach((good) => {
     util -= utilityParams[good].parameters.unitcost * bundle.quantity[good];
   });
-	util = quantize(util, 2);
+  util = quantize(util, 2);
   return util;
 }
 
@@ -424,7 +397,7 @@ function calculateUtilityBuyer(utility, allocation) {
   logExpression(allocation, 2);
   let util = 0;
   let breakdown = {};
-  Object.keys(allocation.products).forEach(good => {
+  Object.keys(allocation.products).forEach((good) => {
     logExpression(utility[good].parameters, 2);
     logExpression(allocation.products[good], 2);
     let incUtil = utility[good].parameters.unitvalue * allocation.products[good].quantity;
@@ -435,158 +408,161 @@ function calculateUtilityBuyer(utility, allocation) {
     };
 
     logExpression("Now util is: " + util, 2);
-    if(allocation.products[good].supplement) {
+    if (allocation.products[good].supplement) {
       breakdown[good].supplement = [];
-      let uParams= utility[good].parameters.supplement;
+      let uParams = utility[good].parameters.supplement;
       let supplementList = allocation.products[good].supplement;
       logExpression("supplementList: ", 2);
       logExpression(supplementList, 2);
-      supplementList.forEach(sBlock => {
-				logExpression("sBlock: ", 2);
-				logExpression(sBlock, 2);
+      supplementList.forEach((sBlock) => {
+        logExpression("sBlock: ", 2);
+        logExpression(sBlock, 2);
         let maxExtras = 1;
         let extras = 0;
-        Object.keys(sBlock).forEach(sgood => {
-					logExpression("sgood: ", 2);
-					logExpression(sgood, 2);
+        Object.keys(sBlock).forEach((sgood) => {
+          logExpression("sgood: ", 2);
+          logExpression(sgood, 2);
           let sQuantity = Math.min(sBlock[sgood].quantity, uParams[sgood].parameters.maxQuantity);
 
-					let eUtil = 0.0;
-          if(sQuantity >= uParams[sgood].parameters.minQuantity) {
-						eUtil = uParams[sgood].parameters.minValue +
-												(sQuantity - uParams[sgood].parameters.minQuantity) *
-												(uParams[sgood].parameters.maxValue - uParams[sgood].parameters.minValue) / (uParams[sgood].parameters.maxQuantity - uParams[sgood].parameters.minQuantity);
-					}
-          if(eUtil > 0.0) {
-						if(extras < maxExtras && eUtil > 0.0) {
-							util += eUtil;
-							logExpression("Added extra utility " + eUtil + " for " + sQuantity + " " + sgood + ".", 2);
-							logExpression("Now util is:  " + util, 2);
-							extras++;
-							breakdown[good].supplement.push({good: sgood, quantity: sQuantity, utility: eUtil});
-						}
-						else {
-							logExpression("Attempted to add another extra (" + sgood + "), but maximum extras is " + maxExtras, 2);
-						}
-					}
+          let eUtil = 0.0;
+          if (sQuantity >= uParams[sgood].parameters.minQuantity) {
+            eUtil =
+              uParams[sgood].parameters.minValue +
+              ((sQuantity - uParams[sgood].parameters.minQuantity) *
+                (uParams[sgood].parameters.maxValue - uParams[sgood].parameters.minValue)) /
+                (uParams[sgood].parameters.maxQuantity - uParams[sgood].parameters.minQuantity);
+          }
+          if (eUtil > 0.0) {
+            if (extras < maxExtras && eUtil > 0.0) {
+              util += eUtil;
+              logExpression("Added extra utility " + eUtil + " for " + sQuantity + " " + sgood + ".", 2);
+              logExpression("Now util is:  " + util, 2);
+              extras++;
+              breakdown[good].supplement.push({ good: sgood, quantity: sQuantity, utility: eUtil });
+            } else {
+              logExpression("Attempted to add another extra (" + sgood + "), but maximum extras is " + maxExtras, 2);
+            }
+          }
         });
       });
     }
   });
-	util = quantize(util, 2);
+  util = quantize(util, 2);
   logExpression("Finally, util is: " + util, 2);
   return {
     utility: util,
-    breakdown: breakdown
+    breakdown: breakdown,
   };
 }
 
 function checkIngredients(ingredients, allocation, recipe) {
   let sufficient = true;
   let requiredIngredients = {};
-	logExpression("In checkIngredients, allocation is: ", 2);
-	logExpression(allocation, 2);
-  let products = getSafe(['products'], allocation, null);
+  logExpression("In checkIngredients, allocation is: ", 2);
+  logExpression(allocation, 2);
+  let products = get(["products"], allocation, null);
   let rationale = {};
-	if(products && recipe) {
-		Object.keys(products).forEach(good => {
-			Object.keys(recipe[good]).forEach(cgood => {
-				logExpression("good: " + good + ", cgood: " + cgood, 3);
-				logExpression(recipe[good][cgood], 3);
-				logExpression(products[good].quantity, 3);
-				if(!requiredIngredients[cgood]) {
-					requiredIngredients[cgood] = 0;
-				}
-				requiredIngredients[cgood] += recipe[good][cgood] * products[good].quantity;
-				logExpression("requiredIngredients[" + cgood + "] = ", 3);
-				logExpression(requiredIngredients[cgood], 3);
-			});
-			if(products[good].supplement) {
-				products[good].supplement.forEach(sBlock => {
-					Object.keys(sBlock).forEach(sgood => {
-						if(requiredIngredients[sgood] == null || requiredIngredients[sgood] == undefined) {
-							requiredIngredients[sgood] = 0;
-						}
-						requiredIngredients[sgood] += sBlock[sgood].quantity;
-					});
-				});
-			}
-		});
-	}
+  if (products && recipe) {
+    Object.keys(products).forEach((good) => {
+      Object.keys(recipe[good]).forEach((cgood) => {
+        logExpression("good: " + good + ", cgood: " + cgood, 3);
+        logExpression(recipe[good][cgood], 3);
+        logExpression(products[good].quantity, 3);
+        if (!requiredIngredients[cgood]) {
+          requiredIngredients[cgood] = 0;
+        }
+        requiredIngredients[cgood] += recipe[good][cgood] * products[good].quantity;
+        logExpression("requiredIngredients[" + cgood + "] = ", 3);
+        logExpression(requiredIngredients[cgood], 3);
+      });
+      if (products[good].supplement) {
+        products[good].supplement.forEach((sBlock) => {
+          Object.keys(sBlock).forEach((sgood) => {
+            if (requiredIngredients[sgood] == null || requiredIngredients[sgood] == undefined) {
+              requiredIngredients[sgood] = 0;
+            }
+            requiredIngredients[sgood] += sBlock[sgood].quantity;
+          });
+        });
+      }
+    });
+  }
   logExpression("requiredIngredients: ", 2);
   logExpression(requiredIngredients, 2);
-	if(!ingredients) {
-		ingredients = {};
-	}
-	Object.keys(requiredIngredients).forEach(good => {
-		if(!ingredients[good]) {
-			logExpression("Was lacking the good " + good, 2);
-			ingredients[good] = 0;
-		}
-	});
-	Object.keys(ingredients).forEach(good => {
-		logExpression("requiredIngredients[" +  good + "]: ", 2);
-		logExpression(requiredIngredients[good], 3);
-		let enough = requiredIngredients[good] == null || requiredIngredients[good] == undefined;
-		logExpression("Enough is: " + enough, 3);
-		enough = enough || (requiredIngredients[good] <= ingredients[good]);
-		logExpression("Now enough is: " + enough, 3);
-		if(!enough) {
-			logExpression("Not enough " + good, 3);
-			logExpression("Need: " + requiredIngredients[good] + " but only have " + ingredients[good] + ".", 2);
-		}
-		rationale[good] = {"need": requiredIngredients[good] || 0, "have": ingredients[good] || 0};
-		sufficient = sufficient && enough;
-	});
+  if (!ingredients) {
+    ingredients = {};
+  }
+  Object.keys(requiredIngredients).forEach((good) => {
+    if (!ingredients[good]) {
+      logExpression("Was lacking the good " + good, 2);
+      ingredients[good] = 0;
+    }
+  });
+  Object.keys(ingredients).forEach((good) => {
+    logExpression("requiredIngredients[" + good + "]: ", 2);
+    logExpression(requiredIngredients[good], 3);
+    let enough = requiredIngredients[good] == null || requiredIngredients[good] == undefined;
+    logExpression("Enough is: " + enough, 3);
+    enough = enough || requiredIngredients[good] <= ingredients[good];
+    logExpression("Now enough is: " + enough, 3);
+    if (!enough) {
+      logExpression("Not enough " + good, 3);
+      logExpression("Need: " + requiredIngredients[good] + " but only have " + ingredients[good] + ".", 2);
+    }
+    rationale[good] = { need: requiredIngredients[good] || 0, have: ingredients[good] || 0 };
+    sufficient = sufficient && enough;
+  });
   logExpression("returning sufficient value of " + sufficient, 2);
   return {
     sufficient,
-    rationale
+    rationale,
   };
 }
 
+/*
 // Functions after this don't work right -- maybe we'll get back to them later
-function optimizeIngredients(ingredients, recipe, utility) { // Generate optimal allocation
+function optimizeIngredients(ingredients, recipe, utility) {
+  // Generate optimal allocation
   let max = {};
-  Object.keys(recipe).forEach(good => {
+  Object.keys(recipe).forEach((good) => {
     max[good] = null;
     logExpression("In optimizeIngredients, good is: " + good, 2);
-    Object.keys(recipe[good]).forEach(cgood => {
+    Object.keys(recipe[good]).forEach((cgood) => {
       logExpression("cgood: " + cgood, 2);
       logExpression(ingredients[cgood], 2);
       logExpression(recipe[good][cgood], 2);
-      let m = parseInt(ingredients[cgood]/recipe[good][cgood]);
+      let m = parseInt(ingredients[cgood] / recipe[good][cgood]);
       logExpression(m, 2);
-      if(!max[good] || (m < max[good])) max[good] = m;
+      if (!max[good] || m < max[good]) max[good] = m;
     });
   });
   logExpression("max of each good is: ", 2);
   logExpression(max, 2);
   let g = [];
-  Object.keys(max).forEach((good,i) => {
+  Object.keys(max).forEach((good, i) => {
     g[i] = good;
   });
   let alloc = {
-    "products": {}
+    products: {},
   };
   logExpression("Maxes: ", 2);
   logExpression(max[g[0]], 2);
   logExpression(max[g[1]], 2);
-  for(let i = 0; i <= max[g[0]]; i++) {
+  for (let i = 0; i <= max[g[0]]; i++) {
     alloc.products[g[0]] = {
-      "unit": "each",
-      "quantity": i
+      unit: "each",
+      quantity: i,
     };
-    for(let j = 0; j <= max[g[1]]; j++) {
+    for (let j = 0; j <= max[g[1]]; j++) {
       alloc.products[g[1]] = {
-        "unit": "each",
-        "quantity": j
+        unit: "each",
+        quantity: j,
       };
       logExpression("allocation is currently: ", 2);
       logExpression(alloc, 2);
       let sufficiency = checkIngredients(ingredients, alloc, recipe);
       logExpression("checkIngredients result: " + sufficiency.sufficient, 2);
-      if(sufficiency.sufficient) {
+      if (sufficiency.sufficient) {
         let optimalSupplement = optimizeSupplement(ingredients, alloc, recipe, utility);
         logExpression("optimalSupplement: ", 2);
         logExpression(optimalSupplement, 2);
@@ -603,40 +579,45 @@ function optimizeSupplement(ingredients, allocation, recipe, utility) {
   logExpression(recipe, 2);
   logExpression(utility, 2);
   let util = 0;
-  Object.keys(allocation.products).forEach(good => {
+  Object.keys(allocation.products).forEach((good) => {
     logExpression(utility[good].parameters, 2);
     logExpression(allocation.products[good], 2);
 
     util += utility[good].parameters.unitvalue * allocation.products[good].quantity;
     logExpression("Now util is: " + util, 2);
     let extraUtil = 0;
-    if(utility[good].parameters.supplement) {
+    if (utility[good].parameters.supplement) {
       logExpression("Calculating supplement for " + good + ".", 2);
       let uParams = utility[good].parameters.supplement;
       logExpression(uParams, 2);
-      Object.keys(uParams).forEach(sgood => { // sgood is e.g. chocolate or blueberry
+      Object.keys(uParams).forEach((sgood) => {
+        // sgood is e.g. chocolate or blueberry
         let sgoodParams = uParams[sgood].parameters;
-        let maxNumGoodsSupplemented = parseInt(ingredients[sgood]/sgoodParams.minQuantity);
-        let minNumGoodsSupplemented = parseInt(ingredients[sgood]/sgoodParams.maxQuantity);
+        let maxNumGoodsSupplemented = parseInt(ingredients[sgood] / sgoodParams.minQuantity);
+        let minNumGoodsSupplemented = parseInt(ingredients[sgood] / sgoodParams.maxQuantity);
         for (let s = minNumGoodsSupplemented; s <= maxNumGoodsSupplemented; s++) {
-          let minSupplementalAmount = parseInt(ingredients[sgood]/s);
+          let minSupplementalAmount = parseInt(ingredients[sgood] / s);
         }
         logExpression("max[" + sgood + "]  = " + max[sgood], 2);
         let eUtil = 0;
         logExpression("supplemental good: " + sgood, 2);
         logExpression("Number of " + good + ": " + allocation.products[good].quantity, 2);
         logExpression("Quantity of supplemental good " + sgood + ": " + ingredients[sgood], 2);
-        let numSupplemented = parseInt(allocation.products[good].quantity/uParams[sgood].parameters.minQuantity);
+        let numSupplemented = parseInt(allocation.products[good].quantity / uParams[sgood].parameters.minQuantity);
         numSupplemented = Math.min(numSupplemented, allocation.products[good].quantity);
         logExpression("Number of supplemented " + good + ": " + numSupplemented, 2);
         let avgsQuantity = ingredients[sgood] / parseFloat(numSupplemented);
         logExpression("Average quantity of " + sgood + " per " + good + ": " + avgsQuantity, 2);
-        if(avgsQuantity >= uParams[sgood].parameters.minQuantity) {
+        if (avgsQuantity >= uParams[sgood].parameters.minQuantity) {
           let usefulQuantity = Math.min(avgsQuantity, uParams[sgood].parameters.maxQuantity);
           logExpression("usefulQuantity of " + sgood + ": " + usefulQuantity, 2);
-          eUtil = uParams[sgood].parameters.minValue + (usefulQuantity - uParams[sgood].parameters.minQuantity) * (uParams[sgood].parameters.maxValue - uParams[sgood].parameters.minValue) / (uParams[sgood].parameters.maxQuantity - uParams[sgood].parameters.minQuantity);
+          eUtil =
+            uParams[sgood].parameters.minValue +
+            ((usefulQuantity - uParams[sgood].parameters.minQuantity) *
+              (uParams[sgood].parameters.maxValue - uParams[sgood].parameters.minValue)) /
+              (uParams[sgood].parameters.maxQuantity - uParams[sgood].parameters.minQuantity);
           eUtil *= numSupplemented;
-          if(eUtil > extraUtil) {
+          if (eUtil > extraUtil) {
             extraUtil = eUtil;
           }
           logExpression("extraUtil is now: " + extraUtil, 2);
@@ -648,3 +629,4 @@ function optimizeSupplement(ingredients, allocation, recipe, utility) {
   logExpression("Finally, util is: " + util, 2);
   return util;
 }
+*/
