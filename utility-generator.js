@@ -1,7 +1,6 @@
 const fs = require("fs");
 const http = require("http");
 const express = require("express");
-const get = require("lodash.get");
 
 const appSettings = require("./appSettings.json");
 const { logExpression, setLogLevel } = require("@cisl/zepto-logger");
@@ -460,7 +459,7 @@ function checkIngredients(ingredients, allocation, recipe) {
   let requiredIngredients = {};
   logExpression("In checkIngredients, allocation is: ", 2);
   logExpression(allocation, 2);
-  let products = get(["products"], allocation, null);
+  let products = allocation && allocation.products ? allocation.products : null;
   let rationale = {};
   if (products && recipe) {
     Object.keys(products).forEach((good) => {
