@@ -34,8 +34,7 @@ app.use(
   })
 );
 
-let GLOB = {};
-GLOB.recipe = require("./recipe.json") || null;
+const recipe = require("./recipe.json");
 
 let sellerUtilityDistributionParameters = require("./distribution_parameters/seller.json");
 let buyerUtilityDistributionParameters = require("./distribution_parameters/buyer.json");
@@ -297,7 +296,6 @@ app.post("/calculateUtility/:agentRole", (req, res) => {
 // ingredients are insufficient, and the amount of the shortfall.
 app.post("/checkAllocation", (req, res) => {
   let data = req.body;
-  let recipe = GLOB.recipe;
   logExpression("Call to /checkAllocation with POST body: ", 2);
   logExpression(data, 2);
   try {
@@ -328,7 +326,6 @@ app.post("/checkAllocation", (req, res) => {
 
 // This is just for testing purposes; probably not needed any more
 app.get("/checkAllocation", (req, res) => {
-  let recipe = GLOB.recipe;
   let data = JSON.parse(fs.readFileSync("./test_data/productBuyer.json", "utf8"));
   let sufficiency = checkIngredients(data.ingredients, data.allocation, recipe);
   logExpression(sufficiency, 2);
