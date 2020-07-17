@@ -2,7 +2,6 @@ const fs = require("fs");
 const http = require("http");
 const express = require("express");
 
-const appSettings = require("./appSettings.json");
 const { logExpression, setLogLevel } = require("@cisl/zepto-logger");
 const { quantize } = require("@humaine/utils/math");
 
@@ -15,7 +14,7 @@ if (argv.level) {
 }
 setLogLevel(logLevel);
 
-const myPort = parseInt(argv.port || appSettings.defaultPort || 7021);
+const myPort = parseInt(argv.port || 7021);
 
 const app = express();
 
